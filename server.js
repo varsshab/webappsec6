@@ -48,13 +48,34 @@ app.get("/api/me", requireUser, (req, res) => {
   res.json({ user: publicUser(user), course: db.section.course, grades });
 });
 
+
 app.get("/api/students/:id", requireUser, (req, res) => {
   const db = load();
-  const student = db.users.find((row) => row.id === Number(req.params.id) && row.role === "student");
-  if (!student) return res.status(404).json({ error: "No student with that id." });
-  const grades = db.grades.filter((row) => row.student_id === student.id);
+
+  const student = db.users.find(
+    (row) => row.id === Number(req.params.id) && row.role === "student"
+  );
+
+  if (!student) {
+    return res.status(404).json({ error: "No student with that id." });
+  }
+
+  const requesterId = Number(req.claims.sub);
+  const isTA = req.claims.role === "ta";
+
+  if (!isTA && requesterId !== student.id) {
+    return res.status(403).json({
+      error: "You can only view your own marks."
+    });
+  }
+
+  const grades = db.grades.filter(
+    (row) => row.student_id === student.id
+  );
+
   res.json({ user: publicUser(student), grades });
 });
+
 
 app.get("/api/section", requireUser, (req, res) => {
   if (req.claims.role !== "ta") {
